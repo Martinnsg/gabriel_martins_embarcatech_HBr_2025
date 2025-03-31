@@ -1,12 +1,12 @@
-# 🚀 EmbarcaTech 2025 - Fase II
+# 🚀 Sound Synth
 
-## 📚 Objetivo
-Este repositório apresenta os projetos de **Sistemas Embarcados** desenvolvidos na **EmbarcaTech 2025 - Fase II**. Aqui você encontrará o código-fonte, documentação e recursos utilizados no desenvolvimento dos sistemas.
+## 🎯 Objetivo do Projeto
+Este repositório apresenta o projeto de um **Sound Synth** desenvolvido para o programa de residência **EmbarcaTech 2025**. Aqui você encontrará o código-fonte, documentação e recursos utilizados no desenvolvimento do projeto.
 
-## 📂 Estrutura do Repositório
+## 📂 Estrutura do Projeto
 
 ```
-/meu_projeto
+/galton_board
 │── /build         # Diretório de compilação (gerado pelo CMake)
 │── /src           # Código-fonte principal (.c, .cpp)
 │── /include       # Cabeçalhos (.h, .hpp)
@@ -15,14 +15,12 @@ Este repositório apresenta os projetos de **Sistemas Embarcados** desenvolvidos
 │── pico_sdk_import.cmake # Importação do SDK da Raspberry Pi
 │── README.md      # Documentação do projeto
 ```
+## 🧩 Componentes usados
 
-## 🔗 Projetos
-Abaixo está a lista de projetos desenvolvidos. Cada um possui um diretório específico dentro do repositório:
-
-- [Projeto 1 - Nome do Projeto](./projetos/projeto1/)
-
-## 🖼️ Setup do Hardware
-Sugestão: incluir aqui uma **foto geral do kit** ou do **setup utilizado** nos projetos. Isso pode ajudar na reprodução dos experimentos.
+```
+BitDogLab
+```
+## ⚡Pinagem dos dispositivos
 
 ## 🛠️ Requisitos e Configuração
 Para compilar e rodar os projetos no **Raspberry Pi Pico W**, siga os passos abaixo:
@@ -42,7 +40,15 @@ Para compilar e rodar os projetos no **Raspberry Pi Pico W**, siga os passos aba
    ```
 4. **Carregue o firmware no Raspberry Pi Pico W.**
 
+## 🖼️Imagens e vídeos
+
+## 📈 Resultados esperados ou observados
+
 ## 👤 Autor
 **Gabriel Martins - Hbr Campinas**
 
 Se tiver dúvidas ou sugestões, fique à vontade para contribuir ou abrir uma _issue_. 🚀
+
+## 👤 Colaborações
+
+Este README foi baseado em um template gerado pelo colega Antonio Almeida, também do HBR Campinas.
