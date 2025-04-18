@@ -6,7 +6,7 @@ Fazer um programa em C para ler os valores convertidos digitalmente do joystick 
 ## 📂 Estrutura do Repositório
 
 ```
-/countdown_counter
+/joystick_reading
 │── /build         # Diretório de compilação (gerado pelo CMake)
 │── /src           # Código-fonte principal (.c)
 │── /include       # Cabeçalhos (.h, .hpp)
