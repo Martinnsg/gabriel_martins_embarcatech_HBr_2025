@@ -143,10 +143,5 @@ void update_display() {
     WriteString(buf, 0, 0, line1);
     WriteString(buf, 0, 16, line2);
     render(buf, &frame_area);
-    
-    // Adiciona saída serial (USB/UART)
-    printf("\n--- Status Atual ---\n");
-    printf("Contador: %d", counter);
-    printf("Cliques B: %d", button_b_presses);
-    printf("-------------------\n");
+
 }
