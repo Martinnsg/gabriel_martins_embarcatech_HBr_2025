@@ -1,4 +1,5 @@
 #include "include/display.h"
+#include "include/ssd1306.h"
 #include <string.h>
 
 void display_init(Display *disp) {
@@ -31,6 +32,19 @@ void display_update(Display *disp) {
 }
 
 void display_draw_string(Display *disp, int x, int y, const char *text) {
-    // Fazemos um cast seguro para compatibilidade com a função original
     WriteString(disp->buffer, (int16_t)x, (int16_t)y, (char *)text);
+}
+
+void display_draw_circle(Display *disp, int x, int y, int radius, bool on) {
+    for (int dy = -radius; dy <= radius; dy++) {
+        for (int dx = -radius; dx <= radius; dx++) {
+            if (dx*dx + dy*dy <= radius*radius) {
+                SetPixel(disp->buffer, x + dx, y + dy, on);
+            }
+        }
+    }
+}
+
+void display_draw_line(Display *disp, int x0, int y0, int x1, int y1, bool on) {
+    DrawLine(disp->buffer, x0, y0, x1, y1, on);
 }

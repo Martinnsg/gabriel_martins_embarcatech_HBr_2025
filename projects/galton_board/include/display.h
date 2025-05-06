@@ -6,7 +6,6 @@
 #include "ssd1306.h"
 #include "config.h"
 
-// Estrutura para controle do display
 typedef struct {
     uint8_t buffer[SSD1306_BUF_LEN];
     struct render_area frame_area;
@@ -21,5 +20,7 @@ void display_update(Display *disp);
 
 // Desenho
 void display_draw_string(Display *disp, int x, int y, const char *text);
+void display_draw_circle(Display *disp, int x, int y, int radius, bool on);
+void display_draw_line(Display *disp, int x0, int y0, int x1, int y1, bool on);
 
 #endif // DISPLAY_H
