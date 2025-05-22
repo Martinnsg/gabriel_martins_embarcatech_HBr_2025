@@ -1,5 +1,6 @@
 #include "pico/stdlib.h"
 #include "include/display.h"
+<<<<<<< HEAD
 #include "include/physics.h"
 
 void draw_board(Display *disp) {
@@ -90,5 +91,21 @@ int main() {
         sleep_ms(16); // ~60 FPS
     }
     
+=======
+#include "include/galton.h"
+#include "include/ball.h"
+#include "include/display.h"
+
+int main() {
+    stdio_init_all();
+
+    Display *display;
+    display_init(display);
+
+    while (true) {
+        display_draw_pins(display, MAX_BINS);
+    }
+
+>>>>>>> 4416be1 (connect to wifi ok)
     return 0;
 }

@@ -23,4 +23,8 @@ void display_draw_string(Display *disp, int x, int y, const char *text);
 void display_draw_circle(Display *disp, int x, int y, int radius, bool on);
 void display_draw_line(Display *disp, int x0, int y0, int x1, int y1, bool on);
 
+
+void display_draw_ball(Display *disp, int x, int y);
+void display_draw_total_count(Display *disp, int count);
+void display_draw_pins(Display *disp, int num_pins);
 #endif // DISPLAY_H
