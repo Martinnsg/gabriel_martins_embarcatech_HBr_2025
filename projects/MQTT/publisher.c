@@ -134,6 +134,12 @@ void connect_to_wifi(const char *ssid, const char *password) {
     }
 }
 
+void xor_encrypt(const uint8_t *input, uint8_t *output, size_t len, uint8_t key) {
+    for (size_t i = 0; i < len; ++i) {
+        output[i] = input[i] ^ key;
+    }
+}
+
 int main()
 {
     stdio_init_all();
@@ -141,23 +147,18 @@ int main()
     connect_to_wifi("MARTINS WIFI-2.4", "20025450");
     sleep_ms(5000);
     print_network_info(); // Exibe informações de rede
-    mqtt_setup("bitdog","192.168.15.146","","");
+    mqtt_setup("bitdog","192.168.15.146","aluno","2509");
     sleep_ms(3000);
     
+    const char *mensagem = "26.5";
+    uint8_t criptografada[16];
+    xor_encrypt((uint8_t *)mensagem, criptografada, strlen(mensagem), 42);
+
+
     while (true)
     {
         cyw43_arch_poll();
-               
-        // Verifique se o cliente está conectado antes de publicar
-        if (mqtt_client_is_connected(client)) {
-            printf("Publicando...\n");
-            mqtt_comm_publish("teste/topico", "jao", strlen("jao"));
-        } else {
-            printf("Cliente MQTT desconectado, tentando reconectar...\n");
-            mqtt_setup("bitdog","192.168.15.146","","");
-            sleep_ms(5000);
-        }
-        
+        mqtt_comm_publish("escola/sala1/temperatura", "jao", strlen("jao"));   
         sleep_ms(1000);
         
     }

@@ -35,7 +35,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(MQTT MQTT.c )
+add_executable(MQTT publisher.c )
 
 pico_set_program_name(MQTT "MQTT")
 pico_set_program_version(MQTT "0.1")
