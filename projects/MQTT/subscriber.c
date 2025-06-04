@@ -1,5 +1,6 @@
 #include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
+#include "pico/time.h"  
 #include <stdio.h>
 #include <string.h>
 
@@ -20,36 +21,45 @@ void print_network_info() {
 
 static mqtt_client_t *client;
 
-// Buffer para armazenar a última mensagem recebida (descriptografada)
 #define MAX_MSG_LEN 128
 static char last_received_msg[MAX_MSG_LEN];
 static volatile bool new_msg_received = false;
 
-/* CALLBACK: chamada quando uma nova publicação é recebida (metadados) */
+static int64_t last_msg_timestamp = -1;  // Timestamp da última mensagem recebida
+
 void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len) {
     printf("Mensagem publicada no tópico: %s (%u bytes)\n", topic, tot_len);
 }
 
-/* CALLBACK: chamada quando os dados da publicação chegam */
 void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags) {
     static size_t received_len = 0;
 
-    // Copia dados para buffer (com cuidado para não ultrapassar o tamanho máximo)
     size_t copy_len = (received_len + len > MAX_MSG_LEN - 1) ? (MAX_MSG_LEN - 1 - received_len) : len;
     memcpy(&last_received_msg[received_len], data, copy_len);
     received_len += copy_len;
 
     if (flags & MQTT_DATA_FLAG_LAST) {
-        last_received_msg[received_len] = '\0'; // Termina a string
+        last_received_msg[received_len] = '\0';
 
-        // Descriptografa com XOR 42
         for (size_t i = 0; i < received_len; i++) {
             last_received_msg[i] ^= 42;
         }
 
-        new_msg_received = true; // sinaliza que nova mensagem chegou
+        // Pega timestamp atual
+        absolute_time_t now = get_absolute_time();
+        int64_t current_timestamp = to_ms_since_boot(now);
 
-        received_len = 0; // reseta para próxima mensagem
+        if (last_msg_timestamp == current_timestamp) {
+            printf("[ERRO] Replay detectado! Timestamp: %lld ms\n", current_timestamp);
+        } else {
+            printf("[OK] Nova mensagem recebida. Timestamp: %lld ms\n", current_timestamp);
+        }
+
+        last_msg_timestamp = current_timestamp;
+
+        new_msg_received = true;
+
+        received_len = 0;
     }
 }
 
@@ -57,17 +67,14 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
     if (status == MQTT_CONNECT_ACCEPTED) {
         printf("Conectado ao broker MQTT!\n");
 
-        // Define callbacks para mensagens recebidas
         mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, NULL);
 
-        // Inscreve-se no tópico
         err_t err = mqtt_subscribe(client, "escola/sala1/temperatura", 0, NULL, NULL);
         if (err != ERR_OK) {
             printf("Erro ao inscrever no tópico: %d\n", err);
         } else {
             printf("Inscrição no tópico realizada com sucesso!\n");
         }
-
     } else {
         printf("Falha ao conectar ao broker, código: %d\n", status);
     }
@@ -110,8 +117,8 @@ void mqtt_comm_publish(const char *topic, const uint8_t *data, size_t len) {
         topic,
         data,
         len,
-        0,  // QoS
-        0,  // retain
+        0,
+        0,
         mqtt_pub_request_cb,
         NULL
     );
@@ -146,13 +153,14 @@ int main() {
     stdio_init_all();
     sleep_ms(5000);
 
-    connect_to_wifi("IBTICamp", "Itec@8523");
+    connect_to_wifi("MARTINS WIFI-2.4", "20025450");
     sleep_ms(5000);
 
     print_network_info();
 
-    mqtt_setup("bitdog", "192.168.5.144", "aluno", "3301");
+    mqtt_setup("bitdog", "192.168.15.146", "aluno", "2509");
     sleep_ms(3000);
+    
 
     const char *mensagem = "26.5";
     uint8_t criptografada[16];
@@ -160,8 +168,6 @@ int main() {
 
     while (true) {
         cyw43_arch_poll();
-
-        mqtt_comm_publish("escola/sala1/temperatura", criptografada, strlen(mensagem));
 
         if (new_msg_received) {
             printf("Mensagem recebida no tópico: %s\n", last_received_msg);

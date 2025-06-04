@@ -35,6 +35,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
+# Change this line for src script
 add_executable(MQTT publisher.c )
 
 pico_set_program_name(MQTT "MQTT")
