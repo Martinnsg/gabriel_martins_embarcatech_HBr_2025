@@ -1,6 +1,6 @@
 // io_manager.c
 
-#include "io_manager.h"
+#include "include/io_manager.h"
 #include "pico/stdlib.h"
 
 // Inicializa os pinos dos botões e LEDs do sistema

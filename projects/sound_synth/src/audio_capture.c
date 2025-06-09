@@ -1,6 +1,6 @@
 // audio_capture.c
 
-#include "audio_capture.h"
+#include "include/audio_capture.h"
 
 #include "hardware/adc.h"
 #include "hardware/timer.h"

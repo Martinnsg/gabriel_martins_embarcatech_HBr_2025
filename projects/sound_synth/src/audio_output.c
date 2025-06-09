@@ -1,6 +1,6 @@
 // audio_output.c
 
-#include "audio_output.h"
+#include "include/audio_output.h"
 #include "hardware/pwm.h"
 #include "pico/stdlib.h"
 

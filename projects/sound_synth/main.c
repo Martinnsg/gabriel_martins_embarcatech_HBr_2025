@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
-#include "audio_capture.h"      // Coleta de áudio (ADC)
-#include "audio_output.h"     // Reprodução via PWM
-#include "io_manager.h"       // Botões e LEDs
+#include "include/audio_capture.h"      // Coleta de áudio (ADC)
+#include "include/audio_output.h"     // Reprodução via PWM
+#include "include/io_manager.h"       // Botões e LEDs
 
 
 int main() {

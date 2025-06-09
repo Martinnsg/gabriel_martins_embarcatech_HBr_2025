@@ -40,9 +40,11 @@ pico_sdk_init()
 # Arquivos-fonte do projeto
 add_executable(audio
     main.c
-    audio_capture.c
-    audio_output.c
-    io_manager.c
+    src/audio_capture.c
+    src/audio_output.c
+    src/io_manager.c
+    src/display
+    src/ssd1306_i2c.c
 )
 
 # Inclui diretórios de cabeçalhos
@@ -55,6 +57,7 @@ target_link_libraries(audio
     pico_stdlib
     hardware_adc
     hardware_pwm
+    hardware_i2c
 )
 
 # Habilita USB para saída via stdio (opcional)
