@@ -48,7 +48,3 @@ Para compilar e rodar os projetos no **Raspberry Pi Pico W**, siga os passos aba
 **Gabriel Martins - Hbr Campinas**
 
 Se tiver dúvidas ou sugestões, fique à vontade para contribuir ou abrir uma _issue_. 🚀
-
-## 👤 Colaborações
-
-Este README foi baseado em um template gerado pelo colega Antonio Almeida, também do HBR Campinas.
