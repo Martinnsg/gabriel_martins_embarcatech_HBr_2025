@@ -35,7 +35,7 @@ Para compilar e rodar os projetos no **Raspberry Pi Pico W**, siga os passos aba
 4. **Carregue o firmware no Raspberry Pi Pico W.**
 
 ## 🖼️Imagens e vídeos
-(images/sintetizador.jpeg)
+![Desmontração do funcionamento](images/sintetizador.jpeg)
 
 https://drive.google.com/file/d/1O5sziL2rjnO3OFda-hDp5GLKtuvsBcCq/view?usp=sharing
 
