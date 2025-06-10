@@ -6,7 +6,7 @@ Este repositório apresenta o projeto de um **Sound Synth** desenvolvido para o 
 ## 📂 Estrutura do Projeto
 
 ```
-/galton_board
+/sound_synth
 │── /build         # Diretório de compilação (gerado pelo CMake)
 │── /src           # Código-fonte principal (.c, .cpp)
 │── /include       # Cabeçalhos (.h, .hpp)
@@ -15,12 +15,6 @@ Este repositório apresenta o projeto de um **Sound Synth** desenvolvido para o 
 │── pico_sdk_import.cmake # Importação do SDK da Raspberry Pi
 │── README.md      # Documentação do projeto
 ```
-## 🧩 Componentes usados
-
-```
-BitDogLab
-```
-## ⚡Pinagem dos dispositivos
 
 ## 🛠️ Requisitos e Configuração
 Para compilar e rodar os projetos no **Raspberry Pi Pico W**, siga os passos abaixo:
@@ -41,8 +35,9 @@ Para compilar e rodar os projetos no **Raspberry Pi Pico W**, siga os passos aba
 4. **Carregue o firmware no Raspberry Pi Pico W.**
 
 ## 🖼️Imagens e vídeos
+(images/sintetizador.jpeg)
 
-## 📈 Resultados esperados ou observados
+https://drive.google.com/file/d/1O5sziL2rjnO3OFda-hDp5GLKtuvsBcCq/view?usp=sharing
 
 ## 👤 Autor
 **Gabriel Martins - Hbr Campinas**
