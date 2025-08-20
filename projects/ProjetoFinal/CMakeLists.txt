@@ -35,7 +35,7 @@ pico_sdk_init()
 
 # Add executable. Default name is the project name, version 0.1
 
-add_executable(AHT10 AHT10.c src/aht10.c src/GY-33.c src/BHT1750.c)
+add_executable(AHT10 AHT10.c src/aht10.c src/GY-33.c src/BHT1750.c src/mqtt.c)
 
 pico_set_program_name(AHT10 "AHT10")
 pico_set_program_version(AHT10 "0.1")
@@ -56,7 +56,8 @@ target_include_directories(AHT10 PRIVATE
 # Add any user requested libraries
 target_link_libraries(AHT10 
         hardware_i2c
-        
+        pico_cyw43_arch_lwip_threadsafe_background
+        pico_lwip_mqtt
         )
 
 pico_add_extra_outputs(AHT10)

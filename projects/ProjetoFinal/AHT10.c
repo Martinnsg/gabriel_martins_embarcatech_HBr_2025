@@ -4,10 +4,7 @@
 #include "include/aht10.h"
 #include "include/GY-33.h"
 #include "include/BHT1750.h"
-
-
-
-
+#include "include/mqtt.h"
 #define I2C_PORT i2c0
 #define SDA_PIN 0
 #define SCL_PIN 1
@@ -15,6 +12,16 @@
 int main() {
     stdio_init_all();
 
+    connect_to_wifi("MARTINS WIFI-2.4", "20025450");
+    sleep_ms(5000);
+    print_network_info();
+    mqtt_setup("bitdog", "192.168.15.146", "aluno", "2509");
+    sleep_ms(3000);
+        
+    //const char *mensagem = "26.5";
+    //uint8_t criptografada[16];
+    //xor_encrypt((uint8_t *)mensagem, criptografada, strlen(mensagem), 42);
+    
     // Inicializa I2C
     i2c_init(I2C_PORT, 100 * 1000);  // 100kHz
     gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
@@ -24,7 +31,6 @@ int main() {
 
     aht10_init(I2C_PORT);
 
-    printf("Inicializando TCS34725...\n");
     tcs34725_enable();
     float temp, hum;
     uint16_t clear, red, green, blue;
@@ -51,6 +57,10 @@ int main() {
             printf("Erro na leitura do BH1750\n");
         }
         sleep_ms(2000);
+
+        cyw43_arch_poll();
+    
+        mqtt_comm_publish("escola/sala1/temperatura", (uint8_t *)"jao", strlen("jao"));
     }
    
 }
