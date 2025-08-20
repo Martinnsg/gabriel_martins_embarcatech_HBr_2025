@@ -35,33 +35,44 @@ int main() {
     float temp, hum;
     uint16_t clear, red, green, blue;
     bh1750_init();
+    char payload[32]; // buffer para a string do lux
 
     while (true) {
-        // Leitura sensor de umidade e temperatura
-        if (aht10_read(I2C_PORT, &temp, &hum)) {
-            printf("Temp: %.2f °C | Hum: %.2f %%\n", temp, hum);
-        } else {
-            printf("Erro ao ler AHT10\n");
-        }
-        
-        // Leitura sensor de cor
-        read_color_data(&clear, &red, &green, &blue);
-        printf("C: %u, R: %u, G: %u, B: %u\n", clear, red, green, blue);
-        print_normalized_color_hex(clear, red, green, blue);
-
-        // Leitura sensor de luminosidade
+        cyw43_arch_poll();
+        sleep_ms(2000);
         float lux = bh1750_read_lux();
         if (lux >= 0) {
             printf("Luminosidade: %.2f lux\n", lux);
+
+            // converte float para string
+            snprintf(payload, sizeof(payload), "$LUM:%.2f", lux);
+            // publica via MQTT
+            mqtt_comm_publish("bitdoglab1/luminosidade",
+                              (uint8_t *)payload, strlen(payload));
         } else {
             printf("Erro na leitura do BH1750\n");
         }
-        sleep_ms(2000);
-
-        cyw43_arch_poll();
-    
-        mqtt_comm_publish("escola/sala1/temperatura", (uint8_t *)"jao", strlen("jao"));
+        //mqtt_comm_publish("escola/sala1/temperatura", (uint8_t *)"jao", strlen("jao"));
     }
    
 }
 
+        // // Leitura sensor de umidade e temperatura
+        // if (aht10_read(I2C_PORT, &temp, &hum)) {
+        //     printf("Temp: %.2f °C | Hum: %.2f %%\n", temp, hum);
+        // } else {
+        //     printf("Erro ao ler AHT10\n");
+        // }
+        
+        // // Leitura sensor de cor
+        // read_color_data(&clear, &red, &green, &blue);
+        // printf("C: %u, R: %u, G: %u, B: %u\n", clear, red, green, blue);
+        // print_normalized_color_hex(clear, red, green, blue);
+
+        // // Leitura sensor de luminosidade
+        // float lux = bh1750_read_lux();
+        // if (lux >= 0) {
+        //     printf("Luminosidade: %.2f lux\n", lux);
+        // } else {
+        //     printf("Erro na leitura do BH1750\n");
+        // }

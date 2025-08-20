@@ -1,3 +1,5 @@
+
+
 import sys
 import math
 from collections import deque
@@ -11,7 +13,7 @@ import serial
 import pyqtgraph as pg
 
 SERIAL_PORT = "/dev/ttyUSB0"
-BAUDRATE = 9600
+BAUDRATE = 115200
 MAX_HISTORY = 100
 
 
@@ -21,12 +23,13 @@ MAX_HISTORY = 100
 class SerialReaderThread(QThread):
     data_received = pyqtSignal(dict)
 
-    def __init__(self, port, baudrate=9600):
+    def __init__(self, port, baudrate=115200):
         super().__init__()
         self.port = port
         self.baudrate = baudrate
         self.ser = None
         self.running = True
+        self.buffer = ""  # Buffer para linhas incompletas
 
     def run(self):
         try:
@@ -38,29 +41,53 @@ class SerialReaderThread(QThread):
 
         while self.running:
             try:
-                line = self.ser.readline().decode("utf-8").strip()
-                if line:
-                    print(f"[RX] {line}")  # mostra tudo que chega da ESP
-                    data = self.parse_data(line)
-                    if data:
-                        self.data_received.emit(data)
+                raw_bytes = self.ser.readline()
+                if not raw_bytes:
+                    continue
+                # Ignora bytes inválidos
+                line_part = raw_bytes.decode("utf-8", errors="ignore")
+                self.buffer += line_part
+
+                # Processa linhas completas
+                while "\n" in self.buffer:
+                    line, self.buffer = self.buffer.split("\n", 1)
+                    line = line.strip()
+                    if line:
+                        # Debug: mostra linha recebida
+                        print(f"[RX] {line}")
+                        data = self.parse_data(line)
+                        if data:
+                            self.data_received.emit(data)
+
             except Exception as e:
                 print("Erro leitura serial:", e)
 
     def parse_data(self, line):
         """
-        Tenta parsear dados no formato:
-        TEMP:25.0,HUM:60.0,LUX:300
+        Reconhece linhas no formato:
+        $LUM:62.50
+        $TEMP:25.3
+        $HUM:60.5
         """
         try:
-            parts = line.split(",")
-            data = {}
-            for p in parts:
-                if ":" in p:
-                    k, v = p.split(":")
-                    data[k.strip().upper()] = float(v.strip())
-            return data if data else None
-        except:
+            line = line.strip()
+            if line.startswith("$"):
+                parts = line[1:].split(":")
+                if len(parts) == 2:
+                    key_raw, val_raw = parts
+                    # Ajusta para os nomes que a GUI espera
+                    key_map = {
+                        "LUM": "LUX",
+                        "TEMP": "TEMP",
+                        "HUM": "HUM"
+                    }
+                    key = key_map.get(key_raw.upper())
+                    if key:
+                        value = float(val_raw)
+                        return {key: value}
+            return None
+        except Exception as e:
+            print("Erro parseando linha:", e)
             return None
 
     def stop(self):
@@ -68,6 +95,7 @@ class SerialReaderThread(QThread):
         if self.ser and self.ser.is_open:
             self.ser.close()
             print("[INFO] Thread fechou a serial.")
+
 
 
 # ---------------------------

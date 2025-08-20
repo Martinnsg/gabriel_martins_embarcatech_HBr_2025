@@ -40,6 +40,8 @@
     "files.associations": {
         "gy-33.h": "c",
         "stdio.h": "c",
-        "aht10.h": "c"
+        "aht10.h": "c",
+        "lwipopts.h": "c",
+        "mqtt.h": "c"
     }
 }
