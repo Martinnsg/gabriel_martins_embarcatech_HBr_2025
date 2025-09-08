@@ -1,5 +1,3 @@
-
-
 import sys
 import math
 from collections import deque
@@ -8,7 +6,7 @@ from PyQt5.QtWidgets import (
     QGroupBox, QFormLayout, QSpinBox, QPushButton
 )
 from PyQt5.QtGui import QPainter, QColor, QFont, QPen, QBrush, QRadialGradient
-from PyQt5.QtCore import QPointF, QRectF, Qt, QTimer, QThread, pyqtSignal
+from PyQt5.QtCore import QPointF, QRectF, Qt, QTimer, QThread, pyqtSignal, pyqtSlot, QObject
 import serial
 import pyqtgraph as pg
 
@@ -18,69 +16,74 @@ MAX_HISTORY = 100
 
 
 # ---------------------------
-# Thread de leitura serial
+# Worker para leitura e escrita serial
 # ---------------------------
-class SerialReaderThread(QThread):
+class SerialWorker(QObject):
     data_received = pyqtSignal(dict)
+    connection_lost = pyqtSignal()
+    finished = pyqtSignal()
 
     def __init__(self, port, baudrate=115200):
         super().__init__()
         self.port = port
         self.baudrate = baudrate
         self.ser = None
-        self.running = True
-        self.buffer = ""  # Buffer para linhas incompletas
+        self._running = True
+        self.buffer = ""
 
     def run(self):
+        """Este método contém o loop principal de leitura."""
         try:
             self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
-            print(f"[OK] Thread conectada na {self.port} ({self.baudrate} baud)")
+            print(f"[OK] Worker conectado na {self.port} ({self.baudrate} baud)")
         except Exception as e:
-            print(f"[ERRO] Thread não conseguiu abrir porta {self.port}: {e}")
-            return
+            print(f"[ERRO] Worker não conseguiu abrir porta {self.port}: {e}")
+            self._running = False
 
-        while self.running:
+        while self._running:
             try:
+                if not self.ser.is_open:
+                    if self._running:
+                        print("[ERRO] A porta serial foi fechada inesperadamente.")
+                        self.connection_lost.emit()
+                    break
                 raw_bytes = self.ser.readline()
                 if not raw_bytes:
                     continue
-                # Ignora bytes inválidos
                 line_part = raw_bytes.decode("utf-8", errors="ignore")
                 self.buffer += line_part
 
-                # Processa linhas completas
                 while "\n" in self.buffer:
                     line, self.buffer = self.buffer.split("\n", 1)
                     line = line.strip()
                     if line:
-                        # Debug: mostra linha recebida
                         print(f"[RX] {line}")
                         data = self.parse_data(line)
                         if data:
                             self.data_received.emit(data)
 
+            except serial.serialutil.SerialException as e:
+                if self._running:
+                    print(f"[ERRO] Conexão serial perdida: {e}")
+                    self.connection_lost.emit()
+                break
             except Exception as e:
-                print("Erro leitura serial:", e)
+                print(f"Erro de leitura inesperado: {e}")
+                break
+
+        if self.ser and self.ser.is_open:
+            self.ser.close()
+        print("[INFO] Worker encerrou o loop e fechou a serial.")
+        self.finished.emit()
 
     def parse_data(self, line):
-        """
-        Reconhece linhas no formato:
-        $LUM:62.50
-        $TEMP:25.3
-        $HUM:60.5
-        """
         try:
             line = line.strip()
             if line.startswith("$"):
                 parts = line[1:].split(":")
                 if len(parts) == 2:
                     key_raw, val_raw = parts
-                    # Ajusta para os nomes que a GUI espera
-                    key_map = {
-                        "LUM": "LUX",
-                        "TEMP": "TEMP",
-                        "HUM": "HUM"
-                    }
+                    key_map = {"LUM": "LUX", "TEMP": "TEMP", "HUM": "HUM", "SOIL": "SOIL"}
                     key = key_map.get(key_raw.upper())
                     if key:
                         value = float(val_raw)
@@ -90,16 +93,27 @@ class SerialReaderThread(QThread):
             print("Erro parseando linha:", e)
             return None
 
+    @pyqtSlot()
     def stop(self):
-        self.running = False
-        if self.ser and self.ser.is_open:
-            self.ser.close()
-            print("[INFO] Thread fechou a serial.")
+        """Slot para parar o loop de forma segura."""
+        print("[INFO] Sinal de parada recebido pelo Worker.")
+        self._running = False
 
+    @pyqtSlot(str)
+    def write_data(self, msg_str):
+        """Slot para escrever dados na serial (executado na thread do worker)."""
+        if self.ser and self.ser.is_open:
+            try:
+                self.ser.write(msg_str.encode())
+                print(f"[TX] {msg_str.strip()}")
+            except Exception as e:
+                print(f"[ERRO] Falha ao escrever na serial: {e}")
+        else:
+            print("[AVISO] Tentativa de escrita com a porta serial fechada.")
 
 
 # ---------------------------
-# Gauge profissional com lógica de cores relativa
+# Gauge profissional
 # ---------------------------
 class ProfessionalGauge(QWidget):
     def __init__(self, title="SENSOR", min_val=0, max_val=100):
@@ -114,11 +128,9 @@ class ProfessionalGauge(QWidget):
         self.alert = False
         self.blink_state = False
         self.setMinimumSize(250, 250)
-
         self.blink_timer = QTimer()
         self.blink_timer.timeout.connect(self.toggle_blink)
         self.blink_timer.start(500)
-
         self.ani_timer = QTimer()
         self.ani_timer.timeout.connect(self.animate_pointer)
         self.ani_timer.start(20)
@@ -151,16 +163,13 @@ class ProfessionalGauge(QWidget):
 
     def get_color_for_value(self):
         if self.ideal_min <= self.value <= self.ideal_max:
-            return QColor(0, 255, 0)  # Verde
-
+            return QColor(0, 255, 0)
         intervalo = self.ideal_max - self.ideal_min
-        margem = intervalo * 0.5  # margem = 50% do intervalo ideal
-
+        margem = intervalo * 0.5
         if (self.ideal_min - margem) <= self.value < self.ideal_min or \
            self.ideal_max < self.value <= (self.ideal_max + margem):
-            return QColor(255, 255, 0)  # Amarelo
-
-        return QColor(255, 0, 0)  # Vermelho
+            return QColor(255, 255, 0)
+        return QColor(255, 0, 0)
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -168,16 +177,12 @@ class ProfessionalGauge(QWidget):
         rect = QRectF(10, 10, self.width()-20, self.height()-20)
         cx, cy = rect.center().x(), rect.center().y()
         radius = rect.width()/2 - 20
-
-        # Fundo radial gradient
         gradient = QRadialGradient(cx, cy, radius)
         gradient.setColorAt(0, QColor("#222222"))
         gradient.setColorAt(1, QColor("#444444"))
         painter.setBrush(QBrush(gradient))
         painter.setPen(Qt.NoPen)
         painter.drawEllipse(rect)
-
-        # Ponteiro animado
         angle = 270 * (self.display_value - self.min_val)/(self.max_val - self.min_val) - 135
         rad = math.radians(angle)
         needle_color = self.get_color_for_value()
@@ -187,8 +192,6 @@ class ProfessionalGauge(QWidget):
         x = cx + (radius-20) * math.cos(rad)
         y = cy + (radius-20) * math.sin(rad)
         painter.drawLine(QPointF(cx, cy), QPointF(x, y))
-
-        # Texto central (valor)
         painter.setPen(QColor("white"))
         painter.setFont(QFont("Arial", 18, QFont.Bold))
         painter.drawText(rect, Qt.AlignCenter, f"{self.title}\n{self.display_value:.1f}")
@@ -198,24 +201,31 @@ class ProfessionalGauge(QWidget):
 # GUI Principal
 # ---------------------------
 class SmartFarmGUI(QWidget):
+    trigger_write = pyqtSignal(str)
+
     def __init__(self, port):
         super().__init__()
         self.setWindowTitle("Smart Farm - Dashboard Extremo")
-        self.resize(1200, 700)
+        self.resize(1400, 800)
         self.setStyleSheet("background-color: #121212; color: white;")
 
-        # Serial principal
-        try:
-            self.serial = serial.Serial(port, BAUDRATE, timeout=1)
-            print(f"[OK] Conectado à ESP32 em {port} ({BAUDRATE} baud)")
-        except Exception as e:
-            self.serial = None
-            print(f"[ERRO] Não foi possível abrir a porta {port}: {e}")
+        # --- CONFIGURAÇÃO DA THREAD (MÉTODO RECOMENDADO) ---
+        self.thread = QThread()
+        self.worker = SerialWorker(port, BAUDRATE)
 
-        # Thread leitura serial
-        self.serial_thread = SerialReaderThread(port)
-        self.serial_thread.data_received.connect(self.update_data)
-        self.serial_thread.start()
+        self.worker.moveToThread(self.thread)
+
+        self.thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self.thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self.thread.finished.connect(self.thread.deleteLater)
+
+        self.worker.data_received.connect(self.update_data)
+        self.worker.connection_lost.connect(self.handle_connection_lost)
+
+        self.trigger_write.connect(self.worker.write_data)
+        self.thread.start()
+        # --- FIM DA CONFIGURAÇÃO DA THREAD ---
 
         self.data_history = {}
         self.gauges = {}
@@ -225,9 +235,7 @@ class SmartFarmGUI(QWidget):
         main_layout = QHBoxLayout()
         self.setLayout(main_layout)
 
-        sensors = ["TEMP", "HUM", "LUX"]
-
-        # Gauges
+        sensors = ["TEMP", "HUM", "LUX", "SOIL"]
         gauge_layout = QVBoxLayout()
         for k in sensors:
             gauge = ProfessionalGauge(title=k, min_val=0, max_val=100)
@@ -236,33 +244,26 @@ class SmartFarmGUI(QWidget):
             self.data_history[k] = deque(maxlen=MAX_HISTORY)
         main_layout.addLayout(gauge_layout)
 
-        # Gráficos
         plot_layout = QVBoxLayout()
         for k in sensors:
             plot_widget = pg.PlotWidget(title=k)
             plot_widget.setBackground("#121212")
             plot_widget.showGrid(x=True, y=True)
             curve = plot_widget.plot(pen=pg.mkPen('#00FFFF', width=2))
-
-            # Faixa verde inicial
             region = pg.LinearRegionItem([20, 80], orientation=pg.LinearRegionItem.Horizontal,
                                          brush=pg.mkBrush(0, 255, 0, 50))
             plot_widget.addItem(region)
-
             self.curves[k] = curve
             self.regions[k] = region
             plot_layout.addWidget(plot_widget)
         main_layout.addLayout(plot_layout)
 
-        # Painel de configuração de intervalos
         control_box = QGroupBox("Configurar Intervalo Ideal")
         form = QFormLayout()
         self.ideal_min_spins = {}
         self.ideal_max_spins = {}
-
         self.send_btn = QPushButton("Enviar Limiar")
         self.send_btn.clicked.connect(self.send_thresholds)
-
         for k in sensors:
             min_spin = QSpinBox()
             min_spin.setRange(-1000, 1000)
@@ -272,28 +273,33 @@ class SmartFarmGUI(QWidget):
             max_spin.setValue(80)
             self.ideal_min_spins[k] = min_spin
             self.ideal_max_spins[k] = max_spin
-
             min_spin.valueChanged.connect(lambda val, s=k: self.update_ideal_range(s))
             max_spin.valueChanged.connect(lambda val, s=k: self.update_ideal_range(s))
-
             container = QHBoxLayout()
             container.addWidget(QLabel("Ideal Min:"))
             container.addWidget(min_spin)
             container.addWidget(QLabel("Ideal Max:"))
             container.addWidget(max_spin)
             form.addRow(QLabel(k), container)
-
         form.addRow(self.send_btn)
         self.confirm_label = QLabel("")
         form.addRow(self.confirm_label)
         control_box.setLayout(form)
         main_layout.addWidget(control_box)
 
+
+    def handle_connection_lost(self):
+        print("[AVISO] Conexão com o dispositivo perdida. Gráficos parados.")
+        self.confirm_label.setText("Erro: Conexão com o dispositivo perdida! 🔌")
+        self.send_btn.setEnabled(False)
+        for k in self.gauges.keys():
+            self.gauges[k].setValue(0)
+        QTimer.singleShot(5000, lambda: self.confirm_label.setText(""))
+
     def update_ideal_range(self, sensor_key):
         min_val = self.ideal_min_spins[sensor_key].value()
         max_val = self.ideal_max_spins[sensor_key].value()
         self.gauges[sensor_key].setIdealRange(min_val, max_val)
-
         region = self.regions[sensor_key]
         region.setRegion([min_val, max_val])
 
@@ -307,28 +313,25 @@ class SmartFarmGUI(QWidget):
     def send_thresholds(self):
         thresholds = {k: (self.ideal_min_spins[k].value(), self.ideal_max_spins[k].value())
                       for k in self.gauges.keys()}
-        print("Limiar enviado:", thresholds)
-
-        msg = "$THRESH,{},{},{},{},{},{}\n".format(
+        print("Limiar pronto para ser enviado:", thresholds)
+        msg = "$THRESH,{},{},{},{},{},{},{},{}\n".format(
             thresholds['TEMP'][0], thresholds['TEMP'][1],
             thresholds['HUM'][0], thresholds['HUM'][1],
-            thresholds['LUX'][0], thresholds['LUX'][1]
+            thresholds['LUX'][0], thresholds['LUX'][1],
+            thresholds['SOIL'][0], thresholds['SOIL'][1]
         )
-
-        if self.serial and self.serial.is_open:
-            self.serial.write(msg.encode())
-            print(f"[TX] {msg.strip()}")
-        else:
-            print("[ERRO] Serial não está aberta!")
-
-        self.confirm_label.setText("Limiar enviado!")
+        self.trigger_write.emit(msg)
+        self.confirm_label.setText("Comando de limiar enviado!")
         QTimer.singleShot(2000, lambda: self.confirm_label.setText(""))
 
     def closeEvent(self, event):
-        self.serial_thread.stop()
-        if self.serial and self.serial.is_open:
-            self.serial.close()
-            print("[INFO] Porta serial fechada.")
+        print("[INFO] Fechando a aplicação...")
+        if self.thread.isRunning():
+            print("[INFO] Solicitando parada do Worker...")
+            self.worker.stop()
+            self.thread.quit()
+            self.thread.wait()
+            print("[INFO] Thread encerrada com sucesso.")
         super().closeEvent(event)
 
 

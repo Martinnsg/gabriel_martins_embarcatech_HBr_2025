@@ -4,12 +4,15 @@
 #include "include/aht10.h"
 #include "include/GY-33.h"
 #include "include/BHT1750.h"
+#include "include/soil_sensor.h"
 #include "include/mqtt.h"
+
 #define I2C_PORT i2c0
 #define SDA_PIN 0
 #define SCL_PIN 1
 
-int main() {
+int main()
+{
     stdio_init_all();
 
     connect_to_wifi("MARTINS WIFI-2.4", "20025450");
@@ -17,62 +20,67 @@ int main() {
     print_network_info();
     mqtt_setup("bitdog", "192.168.15.146", "aluno", "2509");
     sleep_ms(3000);
-        
-    //const char *mensagem = "26.5";
-    //uint8_t criptografada[16];
-    //xor_encrypt((uint8_t *)mensagem, criptografada, strlen(mensagem), 42);
-    
+
+    // Inicializa sensor de umidade no GPIO26 (ADC0)
+    soil_sensor_init(26);
+
     // Inicializa I2C
-    i2c_init(I2C_PORT, 100 * 1000);  // 100kHz
+    i2c_init(I2C_PORT, 100 * 1000); // 100kHz
     gpio_set_function(SDA_PIN, GPIO_FUNC_I2C);
     gpio_set_function(SCL_PIN, GPIO_FUNC_I2C);
     gpio_pull_up(SDA_PIN);
     gpio_pull_up(SCL_PIN);
 
+    // Inicializa sensores
     aht10_init(I2C_PORT);
-
-    tcs34725_enable();
-    float temp, hum;
-    uint16_t clear, red, green, blue;
     bh1750_init();
-    char payload[32]; // buffer para a string do lux
+    tcs34725_enable();
 
-    while (true) {
-        cyw43_arch_poll();
+    char lux_[32];  // buffer para a string do lux
+    char soil_[32]; // buffer para a string do lux
+    char umi_[32];  // buffer para a string do lux
+    char temp_[32]; // buffer para a string do lux
+
+    while (true)
+    {
         sleep_ms(2000);
+
+        // --- BH1750 ---
         float lux = bh1750_read_lux();
-        if (lux >= 0) {
-            printf("Luminosidade: %.2f lux\n", lux);
-
-            // converte float para string
-            snprintf(payload, sizeof(payload), "$LUM:%.2f", lux);
-            // publica via MQTT
-            mqtt_comm_publish("bitdoglab1/luminosidade",
-                              (uint8_t *)payload, strlen(payload));
-        } else {
-            printf("Erro na leitura do BH1750\n");
+        if (lux >= 0)
+        {
+            // printf("$LUM:%.2f\n", lux);
+            snprintf(lux_, sizeof(lux_), "%.2f", lux);
+            mqtt_comm_publish("bitdoglab1/luminosidade", lux_, strlen(lux_));
         }
-        //mqtt_comm_publish("escola/sala1/temperatura", (uint8_t *)"jao", strlen("jao"));
+        else
+        {
+            // printf("Erro na leitura do BH1750\n");
+        }
+        // --- Soil Sensor ---
+        float soil = soil_sensor_read_percent();
+        snprintf(soil_, sizeof(soil_), "%.2f", soil);
+        mqtt_comm_publish("bitdoglab1/umidade/solo", soil_, strlen(soil_));
+
+        // printf("$SOIL:%.2f\n", soil);
+
+        // --- AHT10 (Temp e Umidade do Ar) ---
+        float temp = 0, hum = 0;
+        if (aht10_read(I2C_PORT, &temp, &hum))
+        {
+            snprintf(umi_, sizeof(umi_), "%.2f", hum);
+            snprintf(temp_, sizeof(temp_), "%.2f", temp);
+
+            mqtt_comm_publish("bitdoglab1/umidade/ar", umi_, strlen(umi_));
+
+            mqtt_comm_publish("bitdoglab1/temperatura", temp_, strlen(temp_));
+
+            // printf("$TEMP:%.2f\n", temp);
+            // printf("$HUM:%.2f\n", hum);
+        }
+        else
+        {
+            // printf("Erro na leitura do AHT10\n");
+        }
     }
-   
 }
-
-        // // Leitura sensor de umidade e temperatura
-        // if (aht10_read(I2C_PORT, &temp, &hum)) {
-        //     printf("Temp: %.2f °C | Hum: %.2f %%\n", temp, hum);
-        // } else {
-        //     printf("Erro ao ler AHT10\n");
-        // }
-        
-        // // Leitura sensor de cor
-        // read_color_data(&clear, &red, &green, &blue);
-        // printf("C: %u, R: %u, G: %u, B: %u\n", clear, red, green, blue);
-        // print_normalized_color_hex(clear, red, green, blue);
-
-        // // Leitura sensor de luminosidade
-        // float lux = bh1750_read_lux();
-        // if (lux >= 0) {
-        //     printf("Luminosidade: %.2f lux\n", lux);
-        // } else {
-        //     printf("Erro na leitura do BH1750\n");
-        // }
