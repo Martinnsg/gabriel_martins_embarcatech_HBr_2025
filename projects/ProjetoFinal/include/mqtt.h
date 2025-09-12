@@ -1,21 +1,32 @@
-#ifndef MQTT_H
-#define MQTT_H
+#ifndef MQTT_THRESHOLDS_H
+#define MQTT_THRESHOLDS_H
 
-#include "pico/cyw43_arch.h"           // Biblioteca para controle do chip 
-#include "pico/stdlib.h"
-#include "pico/time.h"                 // Para timestamp
-#include <stdio.h>                     // Biblioteca padrão de entrada/saída (para usar printf)
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+#include <string.h>
+/* Variáveis globais dos thresholds */
+extern float temp_min, temp_max;
+extern float hum_min, hum_max;
+extern float lum_min, lum_max;
+extern float soil_min, soil_max;
 
-#include "lwip/apps/mqtt.h"       // Biblioteca MQTT do lwIP
-#include "include/lwipopts.h"             // Configurações customizadas do lwIP
-#include "lwip/netif.h"
+/* Funções para atualizar thresholds de cada sensor */
+void update_threshold_temp(const char *payload);
+void update_threshold_hum(const char *payload);
+void update_threshold_lum(const char *payload);
+void update_threshold_soil(const char *payload);
 
-void print_network_info();
-static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status);
+/* Inicialização do MQTT */
 void mqtt_setup(const char *client_id, const char *broker_ip, const char *user, const char *pass);
-static void mqtt_pub_request_cb(void *arg, err_t result);
 void mqtt_comm_publish(const char *topic, const uint8_t *data, size_t len);
+/* Protótipos */
+static void mqtt_incoming_publish_cb(void *arg, const char *topic, uint32_t tot_len);
+static void mqtt_incoming_data_cb(void *arg, const uint8_t *data, uint16_t len, uint8_t flags);
+/* Conectar Wi-Fi */
 void connect_to_wifi(const char *ssid, const char *password);
-void xor_encrypt(const uint8_t *input, uint8_t *output, size_t len, uint8_t key);
 
-#endif
+/* Exibir informações da rede */
+void print_network_info(void);
+
+#endif // MQTT_THRESHOLDS_H

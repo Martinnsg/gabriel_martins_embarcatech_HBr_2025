@@ -6,6 +6,7 @@
 #include "include/BHT1750.h"
 #include "include/soil_sensor.h"
 #include "include/mqtt.h"
+#include "include/display.h"
 
 #define I2C_PORT i2c0
 #define SDA_PIN 0
@@ -14,11 +15,11 @@
 int main()
 {
     stdio_init_all();
-
+    init_display();
     connect_to_wifi("MARTINS WIFI-2.4", "20025450");
     sleep_ms(5000);
     print_network_info();
-    mqtt_setup("bitdog", "192.168.15.146", "aluno", "2509");
+    mqtt_setup("bitdog'", "192.168.15.146", "aluno", "2509");
     sleep_ms(3000);
 
     // Inicializa sensor de umidade no GPIO26 (ADC0)
@@ -50,8 +51,8 @@ int main()
         if (lux >= 0)
         {
             // printf("$LUM:%.2f\n", lux);
-            snprintf(lux_, sizeof(lux_), "%.2f", lux);
-            mqtt_comm_publish("bitdoglab1/luminosidade", lux_, strlen(lux_));
+            snprintf(lux_, sizeof(lux_), "$P2:LUM:%.2f", lux);
+            mqtt_comm_publish("bitdoglab2/luminosidade", lux_, strlen(lux_));
         }
         else
         {
@@ -59,8 +60,8 @@ int main()
         }
         // --- Soil Sensor ---
         float soil = soil_sensor_read_percent();
-        snprintf(soil_, sizeof(soil_), "%.2f", soil);
-        mqtt_comm_publish("bitdoglab1/umidade/solo", soil_, strlen(soil_));
+        snprintf(soil_, sizeof(soil_), "$P2:SOIL:%.2f", soil);
+        mqtt_comm_publish("bitdoglab2/umidade/solo", soil_, strlen(soil_));
 
         // printf("$SOIL:%.2f\n", soil);
 
@@ -68,12 +69,12 @@ int main()
         float temp = 0, hum = 0;
         if (aht10_read(I2C_PORT, &temp, &hum))
         {
-            snprintf(umi_, sizeof(umi_), "%.2f", hum);
-            snprintf(temp_, sizeof(temp_), "%.2f", temp);
+            snprintf(umi_, sizeof(umi_), "$P2:HUM:%.2f", hum);
+            snprintf(temp_, sizeof(temp_), "$P2:TEMP:%.2f", temp);
 
-            mqtt_comm_publish("bitdoglab1/umidade/ar", umi_, strlen(umi_));
+            mqtt_comm_publish("bitdoglab2/umidade/ar", umi_, strlen(umi_));
 
-            mqtt_comm_publish("bitdoglab1/temperatura", temp_, strlen(temp_));
+            mqtt_comm_publish("bitdoglab2/temperatura", temp_, strlen(temp_));
 
             // printf("$TEMP:%.2f\n", temp);
             // printf("$HUM:%.2f\n", hum);

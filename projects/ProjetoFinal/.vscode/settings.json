@@ -42,6 +42,10 @@
         "stdio.h": "c",
         "aht10.h": "c",
         "lwipopts.h": "c",
-        "mqtt.h": "c"
+        "mqtt.h": "c",
+        "actuators.h": "c",
+        "stdlib.h": "c",
+        "string.h": "c",
+        "*.bkp": "c"
     }
 }

@@ -1,0 +1,216 @@
+#include "pico/cyw43_arch.h"           // Biblioteca para controle do chip 
+#include "pico/stdlib.h"
+#include "pico/time.h"                 // Para timestamp
+#include <stdio.h>                     // Biblioteca padrão de entrada/saída (para usar printf)
+
+#include "lwip/apps/mqtt.h"       // Biblioteca MQTT do lwIP
+#include "include/lwipopts.h"             // Configurações customizadas do lwIP
+#include "lwip/netif.h"
+
+#include <string.h>
+#include <stdlib.h>
+
+// Protótipos das callbacks MQTT
+static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len);
+static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags);
+
+void print_network_info() {
+    struct netif *netif = netif_default; // Obtém a interface de rede padrão
+    
+    if (netif != NULL && netif_is_up(netif)) {
+        printf("IP: %s\n", ip4addr_ntoa(&netif->ip_addr));
+        printf("Máscara: %s\n", ip4addr_ntoa(&netif->netmask));
+        printf("Gateway: %s\n", ip4addr_ntoa(&netif->gw));
+    } else {
+        printf("Interface de rede não está ativa!\n");
+    }
+}
+
+/* Variável global estática para armazenar a instância do cliente MQTT */
+static mqtt_client_t *client;
+
+/* Callback de subscrição MQTT */
+static void mqtt_sub_request_cb(void *arg, err_t result) {
+    printf("Subscrição concluída com status %d\n", result);
+}
+
+/* Callback de conexão MQTT */
+static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status) {
+    if (status == MQTT_CONNECT_ACCEPTED) {
+        printf("Conectado ao broker MQTT com sucesso!\n");
+
+        mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, NULL);
+
+        mqtt_subscribe(client, "bitdoglab1/temperatura", 0, mqtt_sub_request_cb, NULL);
+        mqtt_subscribe(client, "bitdoglab1/luminosidade", 0, mqtt_sub_request_cb, NULL);
+        mqtt_subscribe(client, "bitdoglab1/umidade/ar", 0, mqtt_sub_request_cb, NULL);
+        mqtt_subscribe(client, "bitdoglab1/umidade/solo", 0, mqtt_sub_request_cb, NULL);
+    } else {
+        printf("Falha ao conectar ao broker, código: %d\n", status);
+    }
+}
+
+/* Função para configurar e iniciar a conexão MQTT */
+void mqtt_setup(const char *client_id, const char *broker_ip, const char *user, const char *pass) {
+    ip_addr_t broker_addr;
+    
+    if (!ip4addr_aton(broker_ip, &broker_addr)) {
+        printf("Erro no IP\n");
+        return;
+    }
+
+    client = mqtt_client_new();
+    if (client == NULL) {
+        printf("Falha ao criar o cliente MQTT\n");
+        return;
+    }
+
+    struct mqtt_connect_client_info_t ci = {
+        .client_id = client_id,
+        .client_user = user,
+        .client_pass = pass
+    };
+
+    mqtt_client_connect(client, &broker_addr, 1883, mqtt_connection_cb, NULL, &ci);
+}
+
+/* Callback de confirmação de publicação */
+static void mqtt_pub_request_cb(void *arg, err_t result) {
+    absolute_time_t now = get_absolute_time();
+    int64_t timestamp_ms = to_ms_since_boot(now);
+
+    if (result == ERR_OK) {
+        //printf("[%lld ms] Publicação MQTT enviada com sucesso!\n", timestamp_ms);
+    } else {
+        printf("[%lld ms] Erro ao publicar via MQTT: %d\n", timestamp_ms, result);
+    }
+}
+
+/* Função para publicar dados em um tópico MQTT */
+void mqtt_comm_publish(const char *topic, const uint8_t *data, size_t len) {
+    err_t status = mqtt_publish(
+        client,
+        topic,
+        data,
+        len,
+        0,   // QoS 0
+        0,   // Não reter
+        mqtt_pub_request_cb,
+        NULL
+    );
+
+    absolute_time_t now = get_absolute_time();
+    int64_t timestamp_ms = to_ms_since_boot(now);
+
+    if (status != ERR_OK) {
+        printf("[%lld ms] mqtt_publish falhou ao ser enviada: %d\n", now, status);
+    } else {
+        //printf("[%lld ms] mqtt_publish enviada para o tópico: %s\n", now, topic);
+    }
+}
+
+/* Função para conectar ao Wi-Fi */
+void connect_to_wifi(const char *ssid, const char *password) {
+    if (cyw43_arch_init()) {
+        printf("Erro ao iniciar Wi-Fi\n");
+        return;
+    }
+
+    cyw43_arch_enable_sta_mode();
+
+    if (cyw43_arch_wifi_connect_timeout_ms(ssid, password, CYW43_AUTH_WPA2_AES_PSK, 30000)) {
+        printf("Erro ao conectar\n");
+    } else {        
+        printf("Conectado ao Wi-Fi\n");
+    }
+}
+
+/* Função de criptografia XOR */
+void xor_encrypt(const uint8_t *input, uint8_t *output, size_t len, uint8_t key) {
+    for (size_t i = 0; i < len; ++i) {
+        output[i] = input[i] ^ key;
+    }
+}
+
+float temp_setpoint = 25.0;
+float temp_min = 20.0, temp_max = 30.0;
+
+float hum_setpoint = 60.0;
+float hum_min = 40.0, hum_max = 80.0;
+
+float lum_min = 100.0, lum_max = 800.0;
+
+float soil_min = 30.0, soil_max = 70.0;
+
+// Adapte para cada limiar conforme o tópico
+void update_thresholds(const char *topic, const char *payload) {
+    int min, max;
+    if (sscanf(payload, "$THRESH:%d,%d", &min, &max) == 2) {
+        if (strcmp(topic, "bitdoglab1/limiar/temp") == 0) {
+            temp_min = min;
+            temp_max = max;
+        } else if (strcmp(topic, "bitdoglab1/limiar/hum") == 0) {
+            hum_min = min;
+            hum_max = max;
+        } else if (strcmp(topic, "bitdoglab1/limiar/lum") == 0) {
+            lum_min = min;
+            lum_max = max;
+        } else if (strcmp(topic, "bitdoglab1/limiar/soil") == 0) {
+            soil_min = min;
+            soil_max = max;
+        }
+        printf("Atualizado %s: min=%d, max=%d\n", topic, min, max);
+    }
+}
+
+static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len) {
+    printf("Mensagem recebida no tópico: %s\n", topic);
+}
+
+static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags) {
+    char payload[64];
+    strncpy(payload, (const char *)data, len);
+    payload[len] = '\0';
+    // Supondo que o tópico está disponível em arg, ou salve o último tópico recebido
+    const char *topic = (const char *)arg;
+    update_thresholds(topic, payload);
+}
+
+
+
+
+#ifndef MQTT_H
+#define MQTT_H
+
+#include <stddef.h>
+#include <stdint.h>
+#include "pico/cyw43_arch.h"           // Biblioteca para controle do chip 
+#include "pico/stdlib.h"
+#include "pico/time.h"                 // Para timestamp
+#include <stdio.h>                     // Biblioteca padrão de entrada/saída (para usar printf)
+
+#include "lwip/apps/mqtt.h"       // Biblioteca MQTT do lwIP
+#include "include/lwipopts.h"             // Configurações customizadas do lwIP
+#include "lwip/netif.h"
+// Variáveis globais dos limiares (extern para acesso em outros arquivos)
+extern float temp_setpoint;
+extern float temp_min, temp_max;
+extern float hum_setpoint;
+extern float hum_min, hum_max;
+extern float lum_min, lum_max;
+extern float soil_min, soil_max;
+
+// Funções principais de conexão e publicação MQTT
+void connect_to_wifi(const char *ssid, const char *password);
+void print_network_info(void);
+void mqtt_setup(const char *client_id, const char *broker_ip, const char *user, const char *pass);
+void mqtt_comm_publish(const char *topic, const uint8_t *data, size_t len);
+
+// Função para atualizar limiares a partir de mensagens MQTT
+void update_thresholds(const char *topic, const char *payload);
+
+// Função de criptografia XOR (opcional)
+void xor_encrypt(const uint8_t *input, uint8_t *output, size_t len, uint8_t key);
+
+#endif // MQTT_H
+
