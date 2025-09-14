@@ -564,6 +564,7 @@ class SmartFarmGUI(QWidget):
         QTimer.singleShot(5000, lambda: self.confirm_label.setText(""))
 
     def send_thresholds(self):
+        print('FOII CLIACADO')
         thresholds = {k: (self.ideal_min_spins[k].value(), self.ideal_max_spins[k].value()) for k in self.gauges.keys()}
         msg = "$THRESH,{},{},{},{},{},{},{},{}\n".format(
             thresholds['TEMP'][0], thresholds['TEMP'][1], thresholds['HUM'][0], thresholds['HUM'][1],

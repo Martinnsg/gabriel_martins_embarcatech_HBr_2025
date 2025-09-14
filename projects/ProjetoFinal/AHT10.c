@@ -1,13 +1,14 @@
 #include <stdio.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
+#include "hardware/pwm.h"
 #include "include/aht10.h"
 #include "include/GY-33.h"
 #include "include/BHT1750.h"
 #include "include/soil_sensor.h"
 #include "include/mqtt.h"
 #include "include/display.h"
-
+#include "include/actuators.h"
 #define I2C_PORT i2c0
 #define SDA_PIN 0
 #define SCL_PIN 1
@@ -21,6 +22,10 @@ int main()
     print_network_info();
     mqtt_setup("bitdog'", "192.168.15.146", "aluno", "2509");
     sleep_ms(3000);
+    actuators_init();
+    printf("FAN slice = %d\n", pwm_gpio_to_slice_num(FAN_EN_PIN));
+    printf("HUM slice = %d\n", pwm_gpio_to_slice_num(HUM_EN_PIN));
+    printf("LED slice = %d\n", pwm_gpio_to_slice_num(LED_PWM_PIN));
 
     // Inicializa sensor de umidade no GPIO26 (ADC0)
     soil_sensor_init(26);
@@ -83,5 +88,14 @@ int main()
         {
             // printf("Erro na leitura do AHT10\n");
         }
+
+        control_all(
+            hum_min, hum_max, hum,
+            temp_min, temp_max, temp,
+            lum_min, lum_max, lux,
+            soil_min, soil_max, soil
+        );
+
+
     }
 }
