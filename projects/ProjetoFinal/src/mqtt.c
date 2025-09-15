@@ -9,7 +9,7 @@
 #include "lwip/netif.h"
 #include "include/lwipopts.h"
 
-/* Variáveis globais */
+/* Variáveis globais de thresholds */
 float temp_min = 20.0, temp_max = 30.0;
 float hum_min  = 40.0, hum_max  = 80.0;
 float lum_min  = 100.0, lum_max = 800.0;
@@ -19,7 +19,11 @@ float soil_min = 30.0, soil_max = 70.0;
 static mqtt_client_t *client;
 static char current_topic[64];
 
-/* Atualizações de thresholds */
+/* Buffer estático para publicação MQTT */
+#define MQTT_PUB_BUFFER_SIZE 256
+static char mqtt_pub_buffer[MQTT_PUB_BUFFER_SIZE];
+
+/* ======================== THRESHOLDS ======================== */
 void update_threshold_temp(const char *payload) {
     float min, max;
     if (sscanf(payload, "$THRESH:%f,%f", &min, &max) == 2) {
@@ -60,9 +64,34 @@ void update_threshold_soil(const char *payload) {
     }
 }
 
-/* Callbacks MQTT */
+/* ======================== CALLBACKS MQTT ======================== */
 static void mqtt_sub_request_cb(void *arg, err_t result) {
     printf("Subscrição concluída com status %d\n", result);
+}
+
+static void mqtt_incoming_publish_cb(void *arg, const char *topic, uint32_t tot_len) {
+    strncpy(current_topic, topic, sizeof(current_topic)-1);
+    current_topic[sizeof(current_topic)-1] = '\0';
+}
+
+static void mqtt_incoming_data_cb(void *arg, const uint8_t *data, uint16_t len, uint8_t flags) {
+    char payload[128];
+    if (len >= sizeof(payload)) len = sizeof(payload)-1;
+    strncpy(payload, (const char *)data, len);
+    payload[len] = '\0';
+
+    // Processa apenas mensagens $THRESH
+    if (strncmp(payload, "$THRESH", 7) != 0) return;
+
+    if (strcmp(current_topic, "bitdoglab2/temperatura") == 0) {
+        update_threshold_temp(payload);
+    } else if (strcmp(current_topic, "bitdoglab2/umidade/ar") == 0) {
+        update_threshold_hum(payload);
+    } else if (strcmp(current_topic, "bitdoglab2/luminosidade") == 0) {
+        update_threshold_lum(payload);
+    } else if (strcmp(current_topic, "bitdoglab2/umidade/solo") == 0) {
+        update_threshold_soil(payload);
+    }
 }
 
 static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection_status_t status) {
@@ -70,7 +99,7 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
         printf("Conectado ao broker MQTT!\n");
         mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, NULL);
 
-        // Subscrições específicas de thresholds
+        // Subscrições de thresholds
         mqtt_subscribe(client, "bitdoglab2/temperatura", 0, mqtt_sub_request_cb, NULL);
         mqtt_subscribe(client, "bitdoglab2/luminosidade", 0, mqtt_sub_request_cb, NULL);
         mqtt_subscribe(client, "bitdoglab2/umidade/ar", 0, mqtt_sub_request_cb, NULL);
@@ -80,6 +109,17 @@ static void mqtt_connection_cb(mqtt_client_t *client, void *arg, mqtt_connection
     }
 }
 
+static void mqtt_pub_request_cb(void *arg, err_t result) {
+    absolute_time_t now = get_absolute_time();
+    int64_t timestamp_ms = to_ms_since_boot(now);
+    if (result == ERR_OK) {
+        printf("[%lld ms] Publicação MQTT enviada com sucesso!\n", timestamp_ms);
+    } else {
+        printf("[%lld ms] Erro ao publicar via MQTT: %d\n", timestamp_ms, result);
+    }
+}
+
+/* ======================== FUNÇÕES PÚBLICAS ======================== */
 void mqtt_setup(const char *client_id, const char *broker_ip, const char *user, const char *pass) {
     ip_addr_t broker_addr;
     if (!ip4addr_aton(broker_ip, &broker_addr)) {
@@ -100,27 +140,44 @@ void mqtt_setup(const char *client_id, const char *broker_ip, const char *user, 
     };
 
     mqtt_client_connect(client, &broker_addr, 1883, mqtt_connection_cb, NULL, &ci);
-}
 
-static void mqtt_pub_request_cb(void *arg, err_t result) {
-    absolute_time_t now = get_absolute_time();
-    int64_t timestamp_ms = to_ms_since_boot(now);
+    // Espera a conexão com polling contínuo
+    int retries = 0;
+    while (!mqtt_client_is_connected(client) && retries < 50) {
+        cyw43_arch_poll();
+        sleep_ms(100);
+        retries++;
+    }
 
-    if (result == ERR_OK) {
-        printf("[%lld ms] Publicação MQTT enviada com sucesso!\n", timestamp_ms);
-    } else {
-        printf("[%lld ms] Erro ao publicar via MQTT: %d\n", timestamp_ms, result);
+    if (!mqtt_client_is_connected(client)) {
+        printf("Falha ao conectar MQTT após timeout\n");
     }
 }
 
-void mqtt_comm_publish(const char *topic, const uint8_t *data, size_t len) {
-    err_t status = mqtt_publish(client, topic, data, len, 0, 0, mqtt_pub_request_cb, NULL);
+void mqtt_comm_publish(const char *topic, const char *msg) {
+    if (!client || !mqtt_client_is_connected(client)) {
+        printf("Cliente MQTT desconectado, não foi possível publicar.\n");
+        printf("Reconectando MQTT...\n");
+        mqtt_setup("bitdog2", "192.168.0.100", "aluno", "2509");
+        return;
+    }
+
+    size_t len = strlen(msg);
+    if (len >= MQTT_PUB_BUFFER_SIZE) len = MQTT_PUB_BUFFER_SIZE - 1;
+
+    memcpy(mqtt_pub_buffer, msg, len);
+    mqtt_pub_buffer[len] = '\0';
+
+    err_t status = mqtt_publish(client, topic, mqtt_pub_buffer, len, 0, 0, mqtt_pub_request_cb, NULL);
     if (status != ERR_OK) {
         printf("mqtt_publish falhou: %d\n", status);
     }
+
+    // Poll curto para o stack processar
+    cyw43_arch_poll();
 }
 
-/* Wi-Fi */
+/* ======================== WI-FI ======================== */
 void connect_to_wifi(const char *ssid, const char *password) {
     if (cyw43_arch_init()) {
         printf("Erro ao iniciar Wi-Fi\n");
@@ -142,31 +199,5 @@ void print_network_info(void) {
         printf("Gateway: %s\n", ip4addr_ntoa(&netif->gw));
     } else {
         printf("Interface de rede não está ativa!\n");
-    }
-}
-
-/* Callbacks de publicação */
-static void mqtt_incoming_publish_cb(void *arg, const char *topic, uint32_t tot_len) {
-    strncpy(current_topic, topic, sizeof(current_topic)-1);
-    current_topic[sizeof(current_topic)-1] = '\0';
-}
-
-static void mqtt_incoming_data_cb(void *arg, const uint8_t *data, uint16_t len, uint8_t flags) {
-    char payload[128];
-    if (len >= sizeof(payload)) len = sizeof(payload)-1;
-    strncpy(payload, (const char *)data, len);
-    payload[len] = '\0';
-
-    // Só processa mensagens $THRESH
-    if (strncmp(payload, "$THRESH", 7) != 0) return;
-
-    if (strcmp(current_topic, "bitdoglab2/temperatura") == 0) {
-        update_threshold_temp(payload);
-    } else if (strcmp(current_topic, "bitdoglab2/umidade/ar") == 0) {
-        update_threshold_hum(payload);
-    } else if (strcmp(current_topic, "bitdoglab2/luminosidade") == 0) {
-        update_threshold_lum(payload);
-    } else if (strcmp(current_topic, "bitdoglab2/umidade/solo") == 0) {
-        update_threshold_soil(payload);
     }
 }

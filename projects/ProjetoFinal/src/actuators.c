@@ -32,9 +32,16 @@ void actuators_init() {
     uint slice_hum = pwm_gpio_to_slice_num(HUM_EN_PIN);
     uint slice_led = pwm_gpio_to_slice_num(LED_PWM_PIN);
 
-    pwm_set_wrap(slice_fan, 255);
-    pwm_set_wrap(slice_hum, 255);
-    pwm_set_wrap(slice_led, 255);
+    pwm_set_wrap(slice_fan, 128);
+    pwm_set_wrap(slice_hum, 128);
+    pwm_set_wrap(slice_led, 128);
+
+       // Ajusta a frequência do PWM (clkdiv)
+    // Fórmula: f_pwm = clk_sys / (wrap+1) / clkdiv
+    // clk_sys = 125 MHz, wrap=128, clkdiv ~195 -> f_pwm ≈ 5 kHz
+    pwm_set_clkdiv(slice_fan, 195.0f);
+    pwm_set_clkdiv(slice_hum, 195.0f);
+    pwm_set_clkdiv(slice_led, 195.0f);
 
     pwm_set_enabled(slice_fan, true);
     pwm_set_enabled(slice_hum, true);
@@ -43,25 +50,28 @@ void actuators_init() {
 
 // ------------------ FUNÇÃO DE CONTROLE ------------------
 uint16_t control_by_range(float value, float min, float max) {
-    if (value <= min) return 255; // abaixo do mínimo → 100% PWM
-    if (value >= max) return 0;   // acima do máximo → 0% PWM
-    float duty = (max - value) / (max - min); 
-    return (uint16_t)(duty * 255.0f);
+    if (value <= min) return 0;     // abaixo do mínimo → PWM mínimo
+    if (value >= max) return 128;   // acima do máximo → PWM máximo
+    float duty = (value - min) / (max - min); 
+    return (uint16_t)(duty * 128.0f);
 }
 
 void control_hum(float hum_min, float hum_max, float hum_current) {
     uint16_t level = control_by_range(hum_current, hum_min, hum_max);
     pwm_set_gpio_level(HUM_EN_PIN, level);
+    printf("HUM level: %d\n", level);
 }
 
 void control_fan(float temp_min, float temp_max, float temp_current) {
     uint16_t level = control_by_range(temp_current, temp_min, temp_max);
     pwm_set_gpio_level(FAN_EN_PIN, level);
+    printf("FAN level: %d\n", level);
 }
 
 void control_led(float lux_min, float lux_max, float lux_current) {
     uint16_t level = control_by_range(lux_current, lux_min, lux_max);
     pwm_set_gpio_level(LED_PWM_PIN, level);
+    printf("LED level: %d\n", level);
 }
 
 void control_pump(float soil_min, float soil_max, float soil_current) {

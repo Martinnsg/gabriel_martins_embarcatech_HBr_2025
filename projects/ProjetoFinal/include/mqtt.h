@@ -19,7 +19,7 @@ void update_threshold_soil(const char *payload);
 
 /* Inicialização do MQTT */
 void mqtt_setup(const char *client_id, const char *broker_ip, const char *user, const char *pass);
-void mqtt_comm_publish(const char *topic, const uint8_t *data, size_t len);
+void mqtt_comm_publish(const char *topic, const char *msg);
 /* Protótipos */
 static void mqtt_incoming_publish_cb(void *arg, const char *topic, uint32_t tot_len);
 static void mqtt_incoming_data_cb(void *arg, const uint8_t *data, uint16_t len, uint8_t flags);

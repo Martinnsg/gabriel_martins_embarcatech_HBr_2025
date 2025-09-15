@@ -5,7 +5,7 @@ from functools import partial
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QGroupBox, QFormLayout, QSpinBox, QPushButton,
-    QMainWindow, QAction, QComboBox, QSizePolicy, QStackedWidget, QGridLayout, QListWidget, QListWidgetItem
+    QMainWindow, QAction, QComboBox, QSizePolicy, QStackedWidget, QGridLayout, QListWidget, QListWidgetItem, QPlainTextEdit, QDialog, QSizePolicy
 )
 from PyQt5.QtGui import QPainter, QColor, QFont, QPen, QBrush, QRadialGradient, QPolygonF
 from PyQt5.QtCore import QPointF, QRectF, Qt, QTimer, QThread, pyqtSignal, pyqtSlot, QObject
@@ -51,7 +51,7 @@ ID_TO_ZONE_NAME = {v: k for k, v in ZONE_IDS.items()}
 SENSOR_RANGES = {
     "TEMP": (10, 40),      # °C
     "HUM": (0, 100),       # %
-    "LUX": (0, 200000),    # lux
+    "LUX": (0, 600),    # lux
     "SOIL": (0, 100),      # %
 }
 
@@ -62,52 +62,51 @@ SENSOR_UNITS = {
 
 # Perfis de plantação com limiares ideais (valores reais)
 PLANT_PROFILES = {
-    "Café":      {"TEMP": (18, 24), "HUM": (60, 80), "LUX": (10000, 50000), "SOIL": (40, 70)},
-    "Tomate":    {"TEMP": (20, 30), "HUM": (50, 70), "LUX": (15000, 60000), "SOIL": (50, 80)},
-    # ... (restante dos perfis continua igual)
-    "Alface":    {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Morango":   {"TEMP": (18, 25), "HUM": (60, 80), "LUX": (10000, 50000), "SOIL": (40, 60)},
-    "Milho":     {"TEMP": (20, 32), "HUM": (50, 70), "LUX": (20000, 80000), "SOIL": (45, 75)},
-    "Soja":      {"TEMP": (20, 30), "HUM": (50, 70), "LUX": (15000, 70000), "SOIL": (40, 70)},
-    "Banana":    {"TEMP": (24, 30), "HUM": (70, 90), "LUX": (10000, 50000), "SOIL": (60, 80)},
-    "Alfarroba": {"TEMP": (18, 28), "HUM": (40, 60), "LUX": (15000, 60000), "SOIL": (30, 60)},
-    "Cenoura":   {"TEMP": (16, 22), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Couve":     {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Pepino":    {"TEMP": (20, 28), "HUM": (60, 80), "LUX": (15000, 50000), "SOIL": (50, 75)},
-    "Pimentão":  {"TEMP": (20, 30), "HUM": (60, 80), "LUX": (15000, 60000), "SOIL": (50, 80)},
-    "Uva":       {"TEMP": (18, 28), "HUM": (50, 70), "LUX": (20000, 80000), "SOIL": (40, 70)},
-    "Manga":     {"TEMP": (24, 32), "HUM": (60, 80), "LUX": (15000, 70000), "SOIL": (50, 80)},
-    "Laranja":   {"TEMP": (20, 30), "HUM": (60, 80), "LUX": (15000, 60000), "SOIL": (50, 80)},
-    "Abacaxi":   {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (20000, 80000), "SOIL": (45, 70)},
-    "Feijão":    {"TEMP": (18, 30), "HUM": (50, 70), "LUX": (15000, 60000), "SOIL": (40, 70)},
-    "Ervilha":   {"TEMP": (15, 25), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Beterraba": {"TEMP": (15, 25), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Espinafre": {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Brócolis":  {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Repolho":   {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Abóbora":   {"TEMP": (20, 30), "HUM": (50, 70), "LUX": (15000, 60000), "SOIL": (50, 80)},
-    "Melancia":  {"TEMP": (22, 32), "HUM": (50, 70), "LUX": (20000, 80000), "SOIL": (45, 75)},
-    "Melão":     {"TEMP": (22, 32), "HUM": (50, 70), "LUX": (20000, 80000), "SOIL": (45, 75)},
-    "Goiaba":    {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (15000, 60000), "SOIL": (50, 80)},
-    "Pera":      {"TEMP": (18, 28), "HUM": (50, 70), "LUX": (15000, 60000), "SOIL": (40, 70)},
-    "Maçã":      {"TEMP": (18, 28), "HUM": (50, 70), "LUX": (15000, 60000), "SOIL": (40, 70)},
-    "Caju":      {"TEMP": (24, 32), "HUM": (60, 80), "LUX": (15000, 70000), "SOIL": (50, 80)},
-    "Mamão":     {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (15000, 70000), "SOIL": (50, 80)},
-    "Acerola":   {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (15000, 70000), "SOIL": (50, 80)},
-    "Maracujá":  {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (15000, 70000), "SOIL": (50, 80)},
-    "Cacau":     {"TEMP": (22, 30), "HUM": (70, 90), "LUX": (10000, 50000), "SOIL": (60, 80)},
-    "Hortelã":   {"TEMP": (18, 25), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Manjericão":{"TEMP": (18, 28), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Alecrim":   {"TEMP": (20, 30), "HUM": (40, 60), "LUX": (15000, 50000), "SOIL": (30, 60)},
-    "Orégano":   {"TEMP": (18, 28), "HUM": (40, 60), "LUX": (12000, 40000), "SOIL": (30, 60)},
-    "Salsa":     {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Cebolinha": {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Alho":      {"TEMP": (18, 28), "HUM": (50, 70), "LUX": (12000, 40000), "SOIL": (40, 70)},
-    "Batata":    {"TEMP": (15, 25), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Inhame":    {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (15000, 60000), "SOIL": (50, 80)},
-    "Rúcula":    {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Alho-poró": {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (12000, 40000), "SOIL": (50, 70)},
-    "Chuchu":    {"TEMP": (20, 30), "HUM": (50, 70), "LUX": (15000, 60000), "SOIL": (50, 80)}
+    "Café":      {"TEMP": (18, 24), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (40, 70)},
+    "Tomate":    {"TEMP": (20, 30), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Alface":    {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Morango":   {"TEMP": (18, 25), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (40, 60)},
+    "Milho":     {"TEMP": (20, 32), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (45, 75)},
+    "Soja":      {"TEMP": (20, 30), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (40, 70)},
+    "Banana":    {"TEMP": (24, 30), "HUM": (70, 90), "LUX": (30, 10000), "SOIL": (60, 80)},
+    "Alfarroba": {"TEMP": (18, 28), "HUM": (40, 60), "LUX": (30, 10000), "SOIL": (30, 60)},
+    "Cenoura":   {"TEMP": (16, 22), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Couve":     {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Pepino":    {"TEMP": (20, 28), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (50, 75)},
+    "Pimentão":  {"TEMP": (20, 30), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Uva":       {"TEMP": (18, 28), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (40, 70)},
+    "Manga":     {"TEMP": (24, 32), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Laranja":   {"TEMP": (20, 30), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Abacaxi":   {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (45, 70)},
+    "Feijão":    {"TEMP": (18, 30), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (40, 70)},
+    "Ervilha":   {"TEMP": (15, 25), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Beterraba": {"TEMP": (15, 25), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Espinafre": {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Brócolis":  {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Repolho":   {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Abóbora":   {"TEMP": (20, 30), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Melancia":  {"TEMP": (22, 32), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (45, 75)},
+    "Melão":     {"TEMP": (22, 32), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (45, 75)},
+    "Goiaba":    {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Pera":      {"TEMP": (18, 28), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (40, 70)},
+    "Maçã":      {"TEMP": (18, 28), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (40, 70)},
+    "Caju":      {"TEMP": (24, 32), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Mamão":     {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Acerola":   {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Maracujá":  {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Cacau":     {"TEMP": (22, 30), "HUM": (70, 90), "LUX": (30, 10000), "SOIL": (60, 80)},
+    "Hortelã":   {"TEMP": (18, 25), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Manjericão":{"TEMP": (18, 28), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Alecrim":   {"TEMP": (20, 30), "HUM": (40, 60), "LUX": (30, 10000), "SOIL": (30, 60)},
+    "Orégano":   {"TEMP": (18, 28), "HUM": (40, 60), "LUX": (30, 10000), "SOIL": (30, 60)},
+    "Salsa":     {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Cebolinha": {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Alho":      {"TEMP": (18, 28), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (40, 70)},
+    "Batata":    {"TEMP": (15, 25), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Inhame":    {"TEMP": (22, 30), "HUM": (60, 80), "LUX": (30, 10000), "SOIL": (50, 80)},
+    "Rúcula":    {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Alho-poró": {"TEMP": (15, 22), "HUM": (55, 75), "LUX": (30, 10000), "SOIL": (50, 70)},
+    "Chuchu":    {"TEMP": (20, 30), "HUM": (50, 70), "LUX": (30, 10000), "SOIL": (50, 80)}
 }
 
 
@@ -115,11 +114,12 @@ PLANT_PROFILES = {
 # Worker Serial
 # ---------------------------
 class SerialWorker(QObject):
-    # <<< ALTERAÇÃO 3: O sinal agora emite um dicionário mais complexo >>>
-    # Ex: {'zone': 'Zona 1', 'data': {'TEMP': 25.5}}
     data_received = pyqtSignal(dict)
     connection_lost = pyqtSignal()
     finished = pyqtSignal()
+    
+    # <<< NOVO SINAL: Para enviar linhas de debug completas >>>
+    debug_data_received = pyqtSignal(str)
 
     def __init__(self, port, baudrate=115200):
         super().__init__()
@@ -133,10 +133,15 @@ class SerialWorker(QObject):
         try:
             self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
             print(f"[OK] Worker conectado na {self.port} ({self.baudrate} baud)")
+            # Emite a mensagem de conexão bem-sucedida para o log de debug
+            self.debug_data_received.emit(f"[RX] Conexão estabelecida com {self.port}")
         except Exception as e:
             print(f"[ERRO] Worker não conseguiu abrir porta {self.port}: {e}")
             self._running = False
-            self.connection_lost.emit() # Emite sinal de erro na conexão
+            self.connection_lost.emit()
+            # Emite a mensagem de erro para o log de debug
+            self.debug_data_received.emit(f"[ERRO] Falha ao abrir porta {self.port}: {e}")
+            return # Sai da função se a conexão falhar
 
         while self._running:
             try:
@@ -156,7 +161,12 @@ class SerialWorker(QObject):
                 while "\n" in self.buffer:
                     line, self.buffer = self.buffer.split("\n", 1)
                     line = line.strip()
+                    
+                    # <<< ADIÇÃO: Emite a linha completa para o log de debug ANTES de ser interpretada >>>
                     if line:
+                        self.debug_data_received.emit(f"[RX] {line}")
+                    
+                    if line.startswith("$P"): # Apenas tenta fazer o parse se a linha for do protocolo
                         data = self.parse_data(line)
                         if data:
                             self.data_received.emit(data)
@@ -165,16 +175,17 @@ class SerialWorker(QObject):
                 if self._running:
                     print(f"[ERRO] Conexão serial perdida: {e}")
                     self.connection_lost.emit()
+                    self.debug_data_received.emit(f"[ERRO] Conexão serial perdida: {e}")
                 break
             except Exception as e:
                 print(f"Erro de leitura inesperado: {e}")
+                self.debug_data_received.emit(f"[ERRO] Erro de leitura inesperado: {e}")
                 break
 
         if self.ser and self.ser.is_open:
             self.ser.close()
         self.finished.emit()
 
-    # <<< ALTERAÇÃO 4: A função de parse agora entende o prefixo da zona >>>
     def parse_data(self, line):
         """
         Interpreta uma linha como "$P1:TEMP:25.5"
@@ -197,7 +208,8 @@ class SerialWorker(QObject):
                         return {"zone": zone_name, "data": {key: float(val_raw)}}
             return None
         except Exception as e:
-            print(f"Erro ao interpretar linha '{line}': {e}")
+            # Emite a linha de erro para o log de debug
+            self.debug_data_received.emit(f"[ERRO] Falha ao interpretar '{line}': {e}")
             return None
 
     @pyqtSlot()
@@ -210,14 +222,14 @@ class SerialWorker(QObject):
             try:
                 self.ser.write(msg_str.encode())
                 print(f"Enviado: {msg_str.strip()}")
+                self.debug_data_received.emit(f"[TX] {msg_str.strip()}")
             except Exception as e:
                 print(f"[ERRO] Falha ao escrever na serial: {e}")
+                self.debug_data_received.emit(f"[ERRO] Falha ao escrever na serial: {e}")
 
 # ---------------------------
 # Gauge Profissional
 # ---------------------------
-# (Substitua a sua classe ProfessionalGauge inteira por esta)
-
 class ProfessionalGauge(QWidget):
     def __init__(self, title="SENSOR", min_val=0, max_val=100):
         super().__init__()
@@ -247,7 +259,6 @@ class ProfessionalGauge(QWidget):
 
     def setIdealRange(self, min_ideal, max_ideal):
         if min_ideal > max_ideal:
-            # Se o usuário cruzar os valores, trocamos para manter a lógica correta
             min_ideal, max_ideal = max_ideal, min_ideal
         self.ideal_min = min_ideal
         self.ideal_max = max_ideal
@@ -263,7 +274,6 @@ class ProfessionalGauge(QWidget):
         return start_angle + proportion * total_angle_span
 
     def get_pointer_color(self):
-        # A lógica de cor do ponteiro continua a mesma, baseada nos limiares
         if self.ideal_min <= self.value <= self.ideal_max:
             return QColor(46, 204, 113) # Verde
 
@@ -297,12 +307,10 @@ class ProfessionalGauge(QWidget):
         painter.drawEllipse(QPointF(0, 0), radius + 10, radius + 10)
 
         # <<< ALTERAÇÃO: ARCO ÚNICO DE COR NEUTRA >>>
-        # Todo o bloco complexo de cálculo de cores foi removido.
-        # Agora desenhamos um único arco cinza para todo o fundo.
         arc_rect = QRectF(-radius, -radius, radius * 2, radius * 2)
         arc_width = max(5, int(radius / 8))
         
-        pen = QPen(QColor(80, 80, 80), float(arc_width)) # Cor cinza neutra
+        pen = QPen(QColor(80, 80, 80), float(arc_width))
         pen.setCapStyle(Qt.FlatCap)
         painter.setPen(pen)
         
@@ -321,6 +329,7 @@ class ProfessionalGauge(QWidget):
             p2 = QPointF(math.cos(angle_rad) * (radius - arc_width + 1), math.sin(angle_rad) * (radius - arc_width + 1))
             painter.drawLine(p1, p2)
             if i % 2 == 0:
+                
                 val = self.min_val + (self.max_val - self.min_val) * i / num_ticks
                 text_pos = QPointF(math.cos(angle_rad) * (radius - arc_width*2), math.sin(angle_rad) * (radius - arc_width*2))
                 font = QFont("Arial", tick_font_size)
@@ -332,7 +341,7 @@ class ProfessionalGauge(QWidget):
         painter.save()
         angle = self.value_to_angle(self.display_value)
         painter.rotate(angle)
-        pointer_color = self.get_pointer_color() # O ponteiro ainda muda de cor
+        pointer_color = self.get_pointer_color()
         painter.setPen(QPen(pointer_color.darker(120), 1))
         painter.setBrush(QBrush(pointer_color))
         points = [QPointF(0, -radius*0.05), QPointF(0, radius*0.05), QPointF(radius - arc_width, 0)]
@@ -355,19 +364,13 @@ class ProfessionalGauge(QWidget):
 # ---------------------------
 # SmartFarmGUI (por zona)
 # ---------------------------
-
-# É necessário adicionar estas importações no topo do seu arquivo
-from PyQt5.QtWidgets import QListWidget, QListWidgetItem
-from datetime import datetime
-
-# (Substitua a sua classe SmartFarmGUI inteira por esta)
-
 class SmartFarmGUI(QWidget):
     send_command_to_zone = pyqtSignal(str, str)
 
-    def __init__(self, zone_name):
+    def __init__(self, zone_name, serial_worker):
         super().__init__()
         self.zone_name = zone_name
+        self.serial_worker = serial_worker
         self.setWindowTitle(f"Smart Farm - {self.zone_name}")
         self.resize(1600, 900)
         self.setStyleSheet("""
@@ -388,26 +391,20 @@ class SmartFarmGUI(QWidget):
             }
         """)
 
-        # Inicializa dicionários
         self.data_history = {}
         self.gauges = {}
         self.curves = {}
         self.regions = {}
         self.ideal_min_spins = {}
         self.ideal_max_spins = {}
-        
-        # <<< NOVO: Dicionário para rastrear o estado de cada sensor ('IN' ou 'OUT') >>>
         self.sensor_states = {}
 
-        # --- ESTRUTURA PRINCIPAL DO LAYOUT ---
         main_layout = QHBoxLayout(self)
         
-        # --- LADO ESQUERDO: CONTEÚDO (VELOCÍMETROS E GRÁFICOS) ---
         content_layout = QVBoxLayout()
         sensors = ["TEMP", "HUM", "LUX", "SOIL"]
 
         for sensor_key in sensors:
-            # Inicializa o estado do sensor como 'IN' (dentro dos limiares)
             self.sensor_states[sensor_key] = 'IN'
             
             row_layout = QHBoxLayout()
@@ -434,11 +431,8 @@ class SmartFarmGUI(QWidget):
         content_container = QWidget()
         content_container.setLayout(content_layout)
 
-        # --- LADO DIREITO: PAINEL DE CONTROLE E LOG ---
-        # Um layout vertical para empilhar os controles e o novo registro de eventos
         right_panel_layout = QVBoxLayout()
 
-        # Caixa de Controles (existente)
         control_box = QGroupBox("Configurar Intervalo Ideal")
         form = QFormLayout()
         self.profile_cb = QComboBox()
@@ -463,76 +457,61 @@ class SmartFarmGUI(QWidget):
         form.addRow(self.confirm_label)
         control_box.setLayout(form)
         
-        # <<< NOVO: Caixa de Registro de Eventos >>>
         log_box = QGroupBox("Registro de Eventos")
         log_layout = QVBoxLayout()
-        self.log_widget = QListWidget() # Widget para exibir a lista de logs
+        self.log_widget = QListWidget()
         log_layout.addWidget(self.log_widget)
         log_box.setLayout(log_layout)
 
-        # Adiciona as duas caixas ao painel da direita
         right_panel_layout.addWidget(control_box)
         right_panel_layout.addWidget(log_box)
-        right_panel_layout.setStretch(0, 1) # Control box usa 1 parte do espaço
-        right_panel_layout.setStretch(1, 1) # Log box usa 1 parte do espaço
+        right_panel_layout.setStretch(0, 1)
+        right_panel_layout.setStretch(1, 1)
 
         right_panel_container = QWidget()
         right_panel_container.setLayout(right_panel_layout)
-        right_panel_container.setFixedWidth(400) # Largura fixa para todo o painel
+        right_panel_container.setFixedWidth(400)
 
-        # --- MONTAGEM FINAL DO LAYOUT PRINCIPAL ---
         main_layout.addWidget(content_container)
         main_layout.addWidget(right_panel_container)
 
         self.apply_plant_profile(self.profile_cb.currentText())
 
-    # <<< NOVO: Método para adicionar mensagens ao log >>>
     def add_log_message(self, message, color):
         timestamp = datetime.now().strftime("%d/%m %H:%M:%S")
         log_item = QListWidgetItem(f"[{timestamp}] {message}")
         log_item.setForeground(QColor(color))
         self.log_widget.addItem(log_item)
-        # Rolagem automática para o item mais recente
         self.log_widget.scrollToBottom()
 
-    # <<< NOVO: Método para verificar limiares e registrar eventos >>>
     def check_thresholds_and_log(self, sensor_key, current_value):
         ideal_min = self.ideal_min_spins[sensor_key].value()
         ideal_max = self.ideal_max_spins[sensor_key].value()
         
-        # Determina o estado atual
         is_in_range = ideal_min <= current_value <= ideal_max
         current_state = 'IN' if is_in_range else 'OUT'
         
-        # Pega o último estado conhecido
         last_state = self.sensor_states[sensor_key]
         
-        # Se o estado mudou, registra o evento
         if current_state != last_state:
             if current_state == 'OUT':
                 msg = f"ALERTA: {sensor_key} fora do ideal ({current_value:.1f})"
                 self.add_log_message(msg, "orange")
             else: # Se voltou para 'IN'
                 msg = f"OK: {sensor_key} voltou ao normal ({current_value:.1f})"
-                self.add_log_message(msg, "#55aaff") # Azul claro
+                self.add_log_message(msg, "#55aaff")
             
-            # Atualiza o estado do sensor para o novo estado
             self.sensor_states[sensor_key] = current_state
 
-    # <<< ATUALIZADO: update_data agora chama a verificação de limiares >>>
     @pyqtSlot(dict)
     def update_data(self, data):
         for k, v in data.items():
             if k in self.gauges:
-                # Atualiza a interface como antes
                 self.gauges[k].setValue(float(v))
                 self.data_history[k].append(float(v))
                 self.curves[k].setData(list(self.data_history[k]))
-                
-                # Chama o novo método para verificar e registrar o evento
                 self.check_thresholds_and_log(k, float(v))
 
-    # --- O restante dos métodos continua igual ---
     def __update_ideal_range(self, sensor_key):
         min_val = self.ideal_min_spins[sensor_key].value()
         max_val = self.ideal_max_spins[sensor_key].value()
@@ -550,11 +529,9 @@ class SmartFarmGUI(QWidget):
                 self.ideal_min_spins[sensor].blockSignals(False)
                 self.ideal_max_spins[sensor].blockSignals(False)
                 self.__update_ideal_range(sensor)
-                # Reseta o estado ao aplicar um novo perfil
                 self.sensor_states[sensor] = 'IN'
         self.log_widget.clear()
         self.add_log_message(f"Perfil '{profile_name}' aplicado.", "white")
-
 
     @pyqtSlot()
     def handle_connection_lost(self):
@@ -564,20 +541,51 @@ class SmartFarmGUI(QWidget):
         QTimer.singleShot(5000, lambda: self.confirm_label.setText(""))
 
     def send_thresholds(self):
-        print('FOII CLIACADO')
         thresholds = {k: (self.ideal_min_spins[k].value(), self.ideal_max_spins[k].value()) for k in self.gauges.keys()}
-        msg = "$THRESH,{},{},{},{},{},{},{},{}\n".format(
-            thresholds['TEMP'][0], thresholds['TEMP'][1], thresholds['HUM'][0], thresholds['HUM'][1],
-            thresholds['LUX'][0], thresholds['LUX'][1], thresholds['SOIL'][0], thresholds['SOIL'][1]
-        )
-        self.send_command_to_zone.emit(self.zone_name, msg)
-        self.confirm_label.setText("Comando de limiar enviado!")
+        zone_id = ZONE_IDS.get(self.zone_name, "P1")
+        msg = f"${zone_id}:THRESH:{thresholds['TEMP'][0]},{thresholds['TEMP'][1]},{thresholds['HUM'][0]},{thresholds['HUM'][1]},{thresholds['LUX'][0]},{thresholds['LUX'][1]},{thresholds['SOIL'][0]},{thresholds['SOIL'][1]}\n"
+        # Envia pela serial
+        if self.serial_worker.ser and self.serial_worker.ser.is_open:
+            self.serial_worker.ser.write(msg.encode("utf-8"))
+            print(f"[DEBUG] Enviado pela serial: {msg.strip()}")
+            self.confirm_label.setText("Comando de limiar enviado!")
+        else:
+            print("[ERRO] Serial não está aberta!")
+            self.confirm_label.setText("Erro: Serial não está aberta!")
         QTimer.singleShot(2000, lambda: self.confirm_label.setText(""))
+
+# <<< NOVO WIDGET: A janela de debug >>>
+class DebugWindow(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Debug Serial")
+        self.resize(800, 600)
+        self.setWindowFlags(self.windowFlags() | Qt.Window) # Permite ser movida livremente
+        
+        layout = QVBoxLayout(self)
+        self.log_area = QPlainTextEdit()
+        self.log_area.setReadOnly(True)
+        self.log_area.setStyleSheet("""
+            background-color: #161b22;
+            color: #8b949e;
+            font-family: monospace;
+            font-size: 10pt;
+            border: 1px solid #30363d;
+        """)
+        
+        layout.addWidget(self.log_area)
+        self.setModal(False) # Não bloqueia a janela principal
+
+    @pyqtSlot(str)
+    def update_log(self, message):
+        """ Adiciona uma nova linha ao log, com rolagem automática. """
+        self.log_area.appendPlainText(message)
+        self.log_area.verticalScrollBar().setValue(self.log_area.verticalScrollBar().maximum())
+
 # ---------------------------
 # ZoneSelector (Menu Principal e Gerenciador)
 # ---------------------------
 class ZoneSelector(QMainWindow):
-    # Sinal para enviar dados para o worker
     trigger_write = pyqtSignal(str)
 
     def __init__(self):
@@ -594,7 +602,6 @@ class ZoneSelector(QMainWindow):
         self.stack = QStackedWidget()
         self.setCentralWidget(self.stack)
 
-        # Menu inicial
         menu_widget = QWidget()
         menu_layout = QVBoxLayout(menu_widget)
         menu_layout.setAlignment(Qt.AlignCenter)
@@ -628,13 +635,24 @@ class ZoneSelector(QMainWindow):
             btn_layout.addWidget(btn, row, col, alignment=Qt.AlignCenter)
         
         menu_layout.addLayout(btn_layout)
+        
+        # <<< NOVO BOTÃO: Para abrir a janela de debug >>>
+        debug_btn = QPushButton("Abrir Debug Serial")
+        debug_btn.setMinimumHeight(40)
+        debug_btn.setStyleSheet("""
+            QPushButton { font-size: 14px; border-radius: 8px; background-color: #555555; color: white; border: 1px solid #777777; }
+            QPushButton:hover { background-color: #777777; }
+        """)
+        debug_btn.clicked.connect(self.show_debug_window)
+        menu_layout.addWidget(debug_btn, alignment=Qt.AlignCenter)
+        
         menu_layout.addStretch()
+        
         self.menu_widget = menu_widget
         self.stack.addWidget(menu_widget)
 
         self.zone_widgets = {}
 
-        # Toolbar
         self.toolbar = self.addToolBar("Navegação")
         self.toolbar.setMovable(False)
         self.toolbar.setStyleSheet("""
@@ -645,9 +663,15 @@ class ZoneSelector(QMainWindow):
         back_action = QAction("🔙 Voltar ao Menu", self)
         back_action.triggered.connect(self.show_menu)
         self.toolbar.addAction(back_action)
+        
+        # <<< NOVO BOTÃO NA TOOLBAR: Para o debug >>>
+        debug_action = QAction("🐛 Debug Serial", self)
+        debug_action.triggered.connect(self.show_debug_window)
+        self.toolbar.addAction(debug_action)
+
         self.toolbar.hide()
 
-        # <<< ALTERAÇÃO 9: Criação do worker serial centralizado >>>
+        self.debug_window = DebugWindow()
         self.setup_serial_worker()
 
     def setup_serial_worker(self):
@@ -655,24 +679,27 @@ class ZoneSelector(QMainWindow):
         self.worker = SerialWorker(SERIAL_PORT, BAUDRATE)
         self.worker.moveToThread(self.thread)
 
-        # Conectar sinais do worker
         self.thread.started.connect(self.worker.run)
         self.worker.finished.connect(self.thread.quit)
         self.worker.finished.connect(self.worker.deleteLater)
         self.thread.finished.connect(self.thread.deleteLater)
         
-        # Conecta o sinal de dados recebidos ao distribuidor
         self.worker.data_received.connect(self.distribute_data)
         self.worker.connection_lost.connect(self.handle_global_connection_lost)
         
-        # Conecta o sinal de escrita
         self.trigger_write.connect(self.worker.write_data)
+        
+        # <<< CONEXÃO DO SINAL DE DEBUG >>>
+        self.worker.debug_data_received.connect(self.debug_window.update_log)
         
         self.thread.start()
 
+    @pyqtSlot()
+    def show_debug_window(self):
+        self.debug_window.show()
+
     @pyqtSlot(dict)
     def distribute_data(self, data_packet):
-        """ Recebe dados do worker e os envia para a GUI da zona correta. """
         zone_name = data_packet.get("zone")
         sensor_data = data_packet.get("data")
         
@@ -681,29 +708,23 @@ class ZoneSelector(QMainWindow):
 
     @pyqtSlot(str, str)
     def handle_zone_command(self, zone_name, command):
-        """ Recebe um comando de uma GUI de zona, formata e envia. """
         zone_id = ZONE_IDS.get(zone_name)
         if zone_id:
-            # Formata a mensagem: $P1:$THRESH,18,24,...
-            # Remove o '$' original do comando para não duplicar
-            formatted_msg = f"${zone_id}:{command[1:]}"
+            # Garante o formato correto: $P2:THRESH,...
+            formatted_msg = f"${zone_id}:{command}"
             self.trigger_write.emit(formatted_msg)
 
     @pyqtSlot()
     def handle_global_connection_lost(self):
-        """ Avisa todas as GUIs abertas que a conexão foi perdida. """
         print("Notificando todas as janelas sobre a perda de conexão.")
         for gui in self.zone_widgets.values():
             gui.handle_connection_lost()
 
     def open_zone(self, zone_name):
         if zone_name not in self.zone_widgets:
-            gui = SmartFarmGUI(zone_name)
-            # Conecta o sinal de envio de comando da GUI a este gerenciador
-            gui.send_command_to_zone.connect(self.handle_zone_command)
+            gui = SmartFarmGUI(zone_name, self.worker)  # Passe o worker!
             self.zone_widgets[zone_name] = gui
             self.stack.addWidget(gui)
-            
         self.stack.setCurrentWidget(self.zone_widgets[zone_name])
         self.toolbar.show()
 
@@ -716,7 +737,7 @@ class ZoneSelector(QMainWindow):
         if self.thread.isRunning():
             self.worker.stop()
             self.thread.quit()
-            self.thread.wait() # Espera a thread terminar de forma segura
+            self.thread.wait()
         super().closeEvent(event)
 
 # ---------------------------
